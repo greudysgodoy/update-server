@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, StreamableFile } from '@nestjs/common';
 import { CreateReleaseDto, ReleaseDto } from './release.dto';
 import { Release } from './release.entity';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -10,6 +10,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { Readable } from 'stream';
 
 @Injectable()
 export class ReleasesService {
@@ -43,6 +44,17 @@ export class ReleasesService {
       release.url = url;
       return release;
     }
+  }
+
+  async getFile(filename: string): Promise<any> {
+    console.log('filename', filename);
+    const command = new GetObjectCommand({
+      Bucket: 'chq-totem-dist',
+      Key: filename,
+    });
+    const response = await this.s3Client.send(command);
+    console.log(response);
+    return new StreamableFile(response.Body as Readable);
   }
 
   async uploadRelease(release: CreateReleaseDto, file: Buffer) {

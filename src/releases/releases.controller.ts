@@ -6,6 +6,7 @@ import {
   Param,
   ParseFilePipe,
   Post,
+  StreamableFile,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -17,9 +18,15 @@ import { CreateReleaseDto } from './release.dto';
 export class ReleasesController {
   constructor(private readonly releaseService: ReleasesService) {}
 
-  @Get(':version')
-  healthCheck(@Param('version') version: string) {
+  @Get('latest:version')
+  latest(@Param('version') version: string) {
     return this.releaseService.getLastRelease(version);
+  }
+
+  @Get(':filename')
+  async getFile(@Param('filename') filename: string): Promise<StreamableFile> {
+    const streamableFile = await this.releaseService.getFile(filename);
+    return streamableFile;
   }
 
   @Post()
