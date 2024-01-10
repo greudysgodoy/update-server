@@ -1,70 +1,30 @@
-import { Injectable, StreamableFile } from '@nestjs/common';
-import { CreateReleaseDto, ReleaseDto } from './release.dto';
-import { Release } from './release.entity';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Injectable, NotFoundException, StreamableFile } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  GetObjectCommand,
-  PutObjectCommand,
-  S3Client,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { Readable } from 'stream';
+import * as SftpClient from 'ssh2-sftp-client';
 
 @Injectable()
 export class ReleasesService {
-  private readonly s3Client = new S3Client({
-    region: this.configService.getOrThrow('AWS_S3_REGION'),
-  });
-  constructor(
-    private readonly configService: ConfigService,
-    @InjectRepository(Release)
-    private releaseRepository: Repository<Release>,
-  ) {}
-
-  async getLastRelease(version: string): Promise<ReleaseDto> {
-    const releases = await this.releaseRepository.find({
-      order: { createdDate: 'DESC' },
-    });
-    const lastRelease = releases[0];
-    if (releases && lastRelease && lastRelease.version !== version) {
-      const command = new GetObjectCommand({
-        Bucket: 'chq-totem-dist',
-        Key: lastRelease.filename,
-      });
-
-      const url = await getSignedUrl(this.s3Client, command, {
-        expiresIn: 3600,
-      });
-
-      const release = new ReleaseDto();
-      release.version = lastRelease.version;
-      release.notes = lastRelease.notes;
-      release.url = url;
-      return release;
-    }
+  private readonly client: SftpClient;
+  constructor(private readonly configService: ConfigService) {
+    this.client = new SftpClient();
   }
 
   async getFile(filename: string): Promise<any> {
     console.log('filename', filename);
-    const command = new GetObjectCommand({
-      Bucket: 'chq-totem-dist',
-      Key: filename,
+    await this.client.connect({
+      host: this.configService.getOrThrow('SFTP_HOST'),
+      port: this.configService.getOrThrow('SFTP_PORT'),
+      username: this.configService.getOrThrow('SFTP_USERNAME'),
+      password: this.configService.getOrThrow('SFTP_PASSWORD'),
     });
-    const response = await this.s3Client.send(command);
-    console.log(response);
-    return new StreamableFile(response.Body as Readable);
-  }
 
-  async uploadRelease(release: CreateReleaseDto, file: Buffer) {
-    await this.s3Client.send(
-      new PutObjectCommand({
-        Bucket: 'chq-totem-dist',
-        Key: release.filename,
-        Body: file,
-      }),
-    );
-    await this.releaseRepository.save(release);
+    const list = await this.client.list('/uploads');
+    if (list.find((file) => file.name === filename)) {
+      const stream = await this.client.get(`/uploads/${filename}`);
+      this.client.end();
+      return new StreamableFile(stream as Uint8Array);
+    }
+    this.client.end();
+    throw new NotFoundException();
   }
 }
