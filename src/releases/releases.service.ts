@@ -18,9 +18,13 @@ export class ReleasesService {
       password: this.configService.getOrThrow('SFTP_PASSWORD'),
     });
 
-    const list = await this.client.list('/uploads');
+    const list = await this.client.list(
+      this.configService.getOrThrow('SFTP_REMOTE_PATH'),
+    );
     if (list.find((file) => file.name === filename)) {
-      const stream = await this.client.get(`/uploads/${filename}`);
+      const stream = await this.client.get(
+        `${this.configService.getOrThrow('SFTP_REMOTE_PATH')}/${filename}`,
+      );
       this.client.end();
       return new StreamableFile(stream as Uint8Array);
     }
