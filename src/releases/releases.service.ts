@@ -25,10 +25,10 @@ export class ReleasesService {
       const stream = await this.client.get(
         `${this.configService.getOrThrow('SFTP_REMOTE_PATH')}/${filename}`,
       );
-      this.client.end();
+      await this.client.end();
       return new StreamableFile(stream as Uint8Array);
     }
-    this.client.end();
+    await this.client.end();
     throw new NotFoundException();
   }
 }
