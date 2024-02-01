@@ -16,9 +16,12 @@ export class ReleasesController {
   //   return this.releaseService.getLastRelease(version);
   // }
 
-  @Get(':filename')
-  async getFile(@Param('filename') filename: string): Promise<StreamableFile> {
-    const streamableFile = await this.releaseService.getFile(filename);
+  @Get(':channel/:filename')
+  async getFile(
+    @Param('channel') channel: string,
+    @Param('filename') filename: string,
+  ): Promise<StreamableFile> {
+    const streamableFile = await this.releaseService.getFile(channel, filename);
     return streamableFile;
   }
 }

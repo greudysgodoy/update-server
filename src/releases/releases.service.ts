@@ -9,8 +9,9 @@ export class ReleasesService {
     this.client = new SftpClient();
   }
 
-  async getFile(filename: string): Promise<any> {
+  async getFile(channel: string, filename: string): Promise<any> {
     console.log('filename', filename);
+    console.log({ channel });
     await this.client.connect({
       host: this.configService.getOrThrow('SFTP_HOST'),
       port: this.configService.getOrThrow('SFTP_PORT'),
@@ -19,11 +20,13 @@ export class ReleasesService {
     });
 
     const list = await this.client.list(
-      this.configService.getOrThrow('SFTP_REMOTE_PATH'),
+      `${this.configService.getOrThrow('SFTP_REMOTE_PATH')}/${channel}`,
     );
     if (list.find((file) => file.name === filename)) {
       const stream = await this.client.get(
-        `${this.configService.getOrThrow('SFTP_REMOTE_PATH')}/${filename}`,
+        `${this.configService.getOrThrow(
+          'SFTP_REMOTE_PATH',
+        )}/${channel}/${filename}`,
       );
       await this.client.end();
       return new StreamableFile(stream as Uint8Array);
